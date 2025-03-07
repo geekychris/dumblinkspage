@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Links Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        h2 {
+            color: #0066cc;
+            margin-top: 30px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #ccc;
+        }
+        .link-container {
+            margin-left: 20px;
+        }
+        a {
+            display: block;
+            margin: 8px 0;
+            color: #0066cc;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        #error-message {
+            color: #cc0000;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>CSV Links Viewer</h1>
+    <div id="content"></div>
+    <div id="error-message"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const contentDiv = document.getElementById('content');
+            const errorMessageDiv = document.getElementById('error-message');
+            
+            // Function to parse CSV data
+            function parseCSV(csv) {
+                const lines = csv.split('\n');
+                const headers = lines[0].split(',').map(header => header.trim());
+                
+                // Find column indices
+                const urlIndex = headers.indexOf('url');
+                const descIndex = headers.indexOf('description');
+                const groupIndex = headers.indexOf('group');
+                
+                // Check if all required columns exist
+                if (urlIndex === -1 || descIndex === -1 || groupIndex === -1) {
+                    throw new Error('CSV file must contain "url", "description", and "group" columns');
+                }
+                
+                const result = [];
+                
+                // Parse data rows
+                for (let i = 1; i < lines.length; i++) {
+                    if (lines[i].trim() === '') continue;
+                    
+                    // Handle commas within quoted fields
+                    const values = [];
+                    let fieldValue = '';
+                    let inQuotes = false;
+                    
+                    for (let j = 0; j < lines[i].length; j++) {
+                        const char = lines[i][j];
+                        
+                        if (char === '"') {
+                            inQuotes = !inQuotes;
+                        } else if (char === ',' && !inQuotes) {
+                            values.push(fieldValue.trim());
+                            fieldValue = '';
+                        } else {
+                            fieldValue += char;
+                        }
+                    }
+                    
+                    values.push(fieldValue.trim());
+                    
+                    if (values.length >= Math.max(urlIndex, descIndex, groupIndex) + 1) {
+                        result.push({
+                            url: values[urlIndex].replace(/^"|"$/g, ''),
+                            description: values[descIndex].replace(/^"|"$/g, ''),
+                            group: values[groupIndex].replace(/^"|"$/g, '')
+                        });
+                    }
+                }
+                
+                return result;
+            }
+            
+            // Function to group data by group field
+            function groupData(data) {
+                const groups = {};
+                
+                data.forEach(item => {
+                    if (!groups[item.group]) {
+                        groups[item.group] = [];
+                    }
+                    groups[item.group].push(item);
+                });
+                
+                return groups;
+            }
+            
+            // Function to render grouped links
+            function renderLinks(groupedData) {
+                contentDiv.innerHTML = '';
+                
+                // Sort group names alphabetically
+                const sortedGroups = Object.keys(groupedData).sort();
+                
+                sortedGroups.forEach(groupName => {
+                    // Create group heading
+                    const groupHeading = document.createElement('h2');
+                    groupHeading.textContent = groupName;
+                    contentDiv.appendChild(groupHeading);
+                    
+                    // Create container for links
+                    const linkContainer = document.createElement('div');
+                    linkContainer.className = 'link-container';
+                    
+                    // Add links for this group
+                    groupedData[groupName].forEach(item => {
+                        const link = document.createElement('a');
+                        link.href = item.url;
+                        link.textContent = item.description;
+                        link.target = '_blank'; // Open in new tab
+                        linkContainer.appendChild(link);
+                    });
+                    
+                    contentDiv.appendChild(linkContainer);
+                });
+            }
+            
+            // Fetch and process the CSV file
+            fetch('data.csv')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to load data.csv. Make sure the file exists in the same directory.');
+                    }
+                    return response.text();
+                })
+                .then(csvData => {
+                    try {
+                        const parsedData = parseCSV(csvData);
+                        const groupedData = groupData(parsedData);
+                        renderLinks(groupedData);
+                    } catch (err) {
+                        errorMessageDiv.textContent = 'Error parsing CSV data: ' + err.message;
+                    }
+                })
+                .catch(error => {
+                    errorMessageDiv.textContent = error.message;
+                    console.error('Error:', error);
+                });
+        });
+    </script>
+</body>
+</html>
+
