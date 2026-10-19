@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Dumblinkspage logo" width="180">
+</p>
+
 # HTML CSV Link Viewer
 
 ## Overview
